@@ -11,7 +11,8 @@ glm::vec3 Window::startingPos;
 
 const char* Window::windowTitle = "GLFW Starter Project";
 // Objects to display.
-Geometry*sphere;
+Geometry*sphere1;
+Geometry*sphere2;
 
 glm::mat4 Window::projection; // Projection matrix.
 
@@ -28,13 +29,15 @@ GLuint modelLoc; // Location of model in shader.
 GLuint viewPosLoc;
 
 // Light shader uniforms
-GLuint lgtPosLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
+GLuint lgtPosLoc, lgtDirLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
 GLuint celFlagLoc;
 bool cFlag = 1;
 
 GLuint Window::program; // The shader program id.
 GLuint simpleDepthShader, debugDepthQuad;
 bool debugFlag = 0;
+GLuint shadowFlagLoc;
+bool sFlag = 1;
 
 // Materials List
 std::vector<glm::vec3> highSpecular = {
@@ -91,16 +94,18 @@ std::vector<glm::vec3> chrome = {
 };
 
 // Shadow Map Stuff
+glm::vec3 lightDirection = glm::vec3(2.0f, 1.0f, 1.0f);
+
 unsigned int depthMapFBO;
 
 const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 unsigned int depthMap;
 
-float near_plane = 1.0f, far_plane = 7.5f;
+float near_plane = 1.0f, far_plane = 50.0f;
 glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
 
-glm::mat4 lightView = glm::lookAt(glm::vec3(2.0f, 1.0f, 1.0f),
+glm::mat4 lightView = glm::lookAt(lightDirection * 10.0f,
 	glm::vec3(0.0f, 0.0f, 0.0f),
 	glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -154,18 +159,20 @@ bool Window::initializeProgram() {
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	// quad setup
-	glUseProgram(debugDepthQuad);
-	glBindSampler(GL_INT_SAMPLER_2D, depthMap);
-
 	// Activate the shader program.
 	glUseProgram(program);
 	// Get the locations of uniform variables.
+
+	GLuint shadowMapLoc = glGetUniformLocation(program, "shadowMap");
+	
+	glUniform1i(shadowMapLoc, 1);
+
 	projectionLoc = glGetUniformLocation(program, "projection");
 	viewLoc = glGetUniformLocation(program, "view");
 	viewPosLoc = glGetUniformLocation(program, "viewPos");
 
 	lgtPosLoc = glGetUniformLocation(program, "light.position");
+	lgtDirLoc = glGetUniformLocation(program, "light.direction");
 	lgtConsLoc = glGetUniformLocation(program, "light.constant");
 	lgtLineLoc = glGetUniformLocation(program, "light.linear");
 	lgtQuadLoc = glGetUniformLocation(program, "light.Quadratic");
@@ -174,8 +181,12 @@ bool Window::initializeProgram() {
 	lgtSpecLoc = glGetUniformLocation(program, "light.specular");
 
 	celFlagLoc = glGetUniformLocation(program, "celFlag");
-	cFlag = true;
+	shadowFlagLoc = glGetUniformLocation(program, "shadowFlag");
    // do locs here
+
+	// quad setup
+	glUseProgram(debugDepthQuad);
+	glBindSampler(GL_INT_SAMPLER_2D, 0);
 
 	return true;
 }
@@ -183,9 +194,17 @@ bool Window::initializeProgram() {
 bool Window::initializeObjects()
 {
         // build out environment and the scene graph
-	sphere = new Geometry(glm::mat4(1), "sphere.obj", (float)width, (float)height,
+	glm::mat4 T = glm::mat4(1);
+	T = glm::translate(T, glm::vec3(-2, -1, 0));
+	sphere1 = new Geometry(T, "sphere.obj", (float)width, (float)height,
 		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
-	root->addChild(sphere);
+
+	T = glm::translate(glm::mat4(1), glm::vec3(2, 1, 0));
+	sphere2 = new Geometry(T, "sphere.obj", (float)width, (float)height,
+		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f);
+
+	root->addChild(sphere1);
+	root->addChild(sphere2);
 
 	return true;
 }
@@ -315,11 +334,15 @@ void Window::displayCallback(GLFWwindow* window)
 		//ConfigureShaderAndMatrices();
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 
+		GLuint lsmLoc = glGetUniformLocation(program, "lightSpaceMatrix");
+		glUniformMatrix4fv(lsmLoc, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
 		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
 		glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
 
 		glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
+		glUniform3fv(lgtDirLoc, 1, glm::value_ptr(lightDirection));
 		glUniform1f(lgtConsLoc, 1.0f);
 		glUniform1f(lgtLineLoc, 0.09f);
 		glUniform1f(lgtQuadLoc, 0.032f);
@@ -328,6 +351,7 @@ void Window::displayCallback(GLFWwindow* window)
 		glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
 
 		glUniform1i(celFlagLoc, cFlag);
+		glUniform1i(shadowFlagLoc, sFlag);
 
 		// Render the object with the appropriate shader program, might need something special inside subclasses so
 		// the transforms know which shader they should use
@@ -446,8 +470,8 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
                 break;
                 
             }
-            case GLFW_KEY_6:{
-              
+            case GLFW_KEY_S:{
+				sFlag = !sFlag;
                 break;
             }
             case GLFW_KEY_C:{
