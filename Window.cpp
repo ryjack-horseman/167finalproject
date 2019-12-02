@@ -27,13 +27,14 @@ GLuint viewLoc; // Location of view in shader.
 GLuint modelLoc; // Location of model in shader.
 GLuint viewPosLoc;
 
+//light shader uniforms
 GLuint lgtPosLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
-
 GLuint celFlagLoc;
 bool cFlag;
 
 GLuint Window::program; // The shader program id.
 
+//Materials List
 std::vector<glm::vec3> highSpecular = {
 
 	// Modified ruby values
@@ -187,7 +188,7 @@ GLFWwindow* Window::createWindow(int width, int height)
 #endif
 
 	// Set swap interval to 1.
-	glfwSwapInterval(0);
+	glfwSwapInterval(1);
 
 	// Call the resize callback to make sure things get drawn immediately.
 	Window::resizeCallback(window, width, height);
