@@ -5,25 +5,87 @@ int Window::height;
 int Window::Movement;
 float Window::fov = 50.0f;
 float Window::position = 0.0f;
-Transform * Window::root;
+Transform * Window::root = new Transform(glm::mat4(1));
 glm::vec3 Window::lastPosition;
 glm::vec3 Window::startingPos;
 
 const char* Window::windowTitle = "GLFW Starter Project";
 // Objects to display.
-
+Geometry*sphere;
 
 glm::mat4 Window::projection; // Projection matrix.
 
-glm::vec3 Window::eye(0, 0, 20); // Camera position.
+glm::vec3 Window::eye(0, 0, 5); // Camera position.
 glm::vec3 Window::center(0, 0, 0); // The point we are looking at.
 glm::vec3 Window::up(0, 1, 0); // The up direction of the camera.
 
 // View matrix, defined by eye, center and up.
 glm::mat4 Window::view = glm::lookAt(Window::eye, Window::center, Window::up);
 
+GLuint projectionLoc; // Location of projection in shader.
+GLuint viewLoc; // Location of view in shader.
+GLuint modelLoc; // Location of model in shader.
+GLuint viewPosLoc;
+
+GLuint lgtPosLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
+
+GLuint celFlagLoc;
+bool cFlag;
+
 GLuint Window::program; // The shader program id.
 
+std::vector<glm::vec3> highSpecular = {
+
+	// Modified ruby values
+	glm::vec3(0.1745f, 0.01175f, 0.01175f),
+	glm::vec3(0.0f, 0.0f, 0.0f),
+	glm::vec3(0.727811f, 0.626959f, 0.626959f),
+
+};
+
+std::vector<glm::vec3> highDiffuse = {
+
+	// Modified jade values
+	glm::vec3(0.135f, 0.2225f, 0.1575f),
+	glm::vec3(0.54f, 0.89f, 0.63f),
+	glm::vec3(0.0f, 0.0f, 0.0f),
+
+};
+
+std::vector<glm::vec3> highDiffSpec = {
+
+	// Brass values
+	glm::vec3(0.329412f, 0.223529f, 0.027451f),
+	glm::vec3(0.780392f, 0.568627f, 0.113725f),
+	glm::vec3(0.992157f, 0.941176f, 0.807843f),
+
+};
+
+std::vector<glm::vec3> lightAmbi = {
+
+	glm::vec3(0.135f, 0.2225f, 0.1575f),
+	glm::vec3(0.54f, 0.89f, 0.63f),
+	glm::vec3(0.0f, 0.0f, 0.0f),
+
+};
+
+std::vector<glm::vec3> emerald = {
+
+	// emerald values 0.6 shininess
+	glm::vec3(0.0215f, 0.1745f, 0.0215f),
+	glm::vec3(0.07568f, 0.61424f, 0.07568f),
+	glm::vec3(0.633f, 0.727811f, 0.633f),
+
+};
+
+std::vector<glm::vec3> chrome = {
+
+	// chrome values 0.6 shininess
+	glm::vec3(0.25f, 0.25f, 0.25f),
+	glm::vec3(0.4f, 0.4f, 0.4f),
+	glm::vec3(0.774597f, 0.774597f, 0.774597f),
+
+};
 
 bool Window::initializeProgram() {
 	// Create a shader program with a vertex shader and a fragment shader.
@@ -39,6 +101,20 @@ bool Window::initializeProgram() {
 	// Activate the shader program.
 	glUseProgram(program);
 	// Get the locations of uniform variables.
+	projectionLoc = glGetUniformLocation(program, "projection");
+	viewLoc = glGetUniformLocation(program, "view");
+	viewPosLoc = glGetUniformLocation(program, "viewPos");
+
+	lgtPosLoc = glGetUniformLocation(program, "light.position");
+	lgtConsLoc = glGetUniformLocation(program, "light.constant");
+	lgtLineLoc = glGetUniformLocation(program, "light.linear");
+	lgtQuadLoc = glGetUniformLocation(program, "light.Quadratic");
+	lgtAmbiLoc = glGetUniformLocation(program, "light.ambient");
+	lgtDiffLoc = glGetUniformLocation(program, "light.diffuse");
+	lgtSpecLoc = glGetUniformLocation(program, "light.specular");
+
+	celFlagLoc = glGetUniformLocation(program, "celFlag");
+	cFlag = true;
    // do locs here
 
 	return true;
@@ -47,7 +123,9 @@ bool Window::initializeProgram() {
 bool Window::initializeObjects()
 {
         // build out environment and the scene graph
-    
+	sphere = new Geometry(glm::mat4(1), "sphere.obj", (float)width, (float)height,
+		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
+	root->addChild(sphere);
 
 	return true;
 }
@@ -144,9 +222,23 @@ void Window::displayCallback(GLFWwindow* window)
 	// Clear the color and depth buffers.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+	glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
+
+	glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
+	glUniform1f(lgtConsLoc, 1.0f);
+	glUniform1f(lgtLineLoc, 0.09f);
+	glUniform1f(lgtQuadLoc, 0.032f);
+	glUniform3f(lgtAmbiLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(lgtDiffLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
+
+	glUniform1i(celFlagLoc, cFlag);
+
 	// Render the object with the appropriate shader program, might need something special inside subclasses so
     // the transforms know which shader they should use
-	root->draw(0, glm::mat4(1.0f));
+	root->draw(program, glm::mat4(1.0f));
     
 	// Gets events, including input such as keyboard and mouse or window resizing.
 	glfwPollEvents();
@@ -212,8 +304,8 @@ glm::vec3 Window::trackBallMapping(glm::vec2 point){
     glm::vec3 v;
     float d;
     
-    v.x = ((2.0f * point.x) - 640)/480;
-    v.y = (480 - 2.0f * point.y)/480;
+    v.x = ((2.0f * point.x) - width)/height;
+    v.y = (height - 2.0f * point.y)/height;
     v.z = 0.0f;
     
     d = glm::length(v);
@@ -265,7 +357,8 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
               
                 break;
             }
-            case GLFW_KEY_P:{
+            case GLFW_KEY_C:{
+				cFlag = !cFlag;
                 break;
             }
             case GLFW_KEY_N:{

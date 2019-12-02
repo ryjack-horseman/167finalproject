@@ -1,49 +1,54 @@
-//
-//  Geometry.hpp
-//  cse 167
-//
-//  Created by Ryan Jackson on 10/29/19.
-//  Copyright © 2019 Ryan Jackson. All rights reserved.
-//
-
-#ifndef Geometry_h
-#define Geometry_h
+#ifndef _GEOMETRY_H_
+#define _GEOMETRY_H_
 
 #ifdef __APPLE__
-#define GL_SILENCE_DEPRECIATION
+#define GLFW_INCLUDE_GLCOREARB
 #include <OpenGL/gl3.h>
 #else
 #include <GL/glew.h>
 #endif
+#include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
-#include <glm/gtx/transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 #include <vector>
-#include <list>
-#include "Node.h"
-#include <stdio.h>
+#include <memory>
 
-class Geometry : public Node{
-    public:
-    Geometry(std::string objFilename, bool whichone);
-    void draw(GLuint shaderProgram, glm::mat4 C);
-    void update(glm::mat4 C);
-    bool type;
-    int sphereOn;
-    std::vector<glm::vec3> points;
-    std::vector<glm::vec3> normals;
-    std::vector<int> faces;
-    std::vector<int> indices;
-    std::vector<glm::vec3> prepoints;
-    std::vector<glm::vec3> prenormals;
-    std::vector<int> otherIndices;
-    GLuint vao, ebo;
-    GLuint vbos[2];
-    glm::mat4 model;
-    static float centerX;
-    static float centerY;
-    static float centerZ;
-    
+#include "Node.h"
+
+class Geometry : public Node
+{
+private:
+	glm::mat4 model;
+	std::vector<Node*> children;
+	std::vector<glm::vec3> points;
+	std::vector<glm::vec3> points_;
+	std::vector<glm::vec3> normals_;
+	std::vector<glm::vec3> normals;
+	std::vector<glm::ivec3> facesP;
+	std::vector<glm::ivec3> facesT;
+	std::vector<glm::ivec3> facesN;
+	std::vector<int> indices;
+
+	GLuint vao, vbos[4];
+	glm::vec3 color, ambient, diffuse, specular;
+	float shininess;
+	glm::vec3 center;
+	float radius;
+
+public:
+	Geometry(glm::mat4 C, std::string objFilename, float width, float height, glm::vec3 rgb,
+		std::vector<glm::vec3> matAttr, float matShin);
+	void Load();
+	void Scaling(float magnitude);
+	void Parsing(std::string& objFilename);
+	~Geometry();
+	void draw(GLuint shaderProgram, glm::mat4 C);
+	void update(glm::mat4 C);
+	float getRadius();
 };
 
-#endif /* Geometry_hpp */
+#endif
+

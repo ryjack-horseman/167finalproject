@@ -5,6 +5,7 @@
 #include <sstream>
 #include <stdio.h>
 #include "Window.h"
+
 /**float PointCloud::centerX;
 float PointCloud::centerY;
 float PointCloud::centerZ;
