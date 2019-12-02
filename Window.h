@@ -63,6 +63,7 @@ public:
     //static void culling(bool testMode);
     static glm::vec3 trackBallMapping(glm::vec2 point);
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+	static void renderQuad();
 };
 
 #endif

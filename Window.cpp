@@ -27,14 +27,16 @@ GLuint viewLoc; // Location of view in shader.
 GLuint modelLoc; // Location of model in shader.
 GLuint viewPosLoc;
 
-//light shader uniforms
+// Light shader uniforms
 GLuint lgtPosLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
 GLuint celFlagLoc;
-bool cFlag;
+bool cFlag = 1;
 
 GLuint Window::program; // The shader program id.
+GLuint simpleDepthShader, debugDepthQuad;
+bool debugFlag = 0;
 
-//Materials List
+// Materials List
 std::vector<glm::vec3> highSpecular = {
 
 	// Modified ruby values
@@ -88,6 +90,22 @@ std::vector<glm::vec3> chrome = {
 
 };
 
+// Shadow Map Stuff
+unsigned int depthMapFBO;
+
+const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+
+unsigned int depthMap;
+
+float near_plane = 1.0f, far_plane = 7.5f;
+glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+
+glm::mat4 lightView = glm::lookAt(glm::vec3(2.0f, 1.0f, 1.0f),
+	glm::vec3(0.0f, 0.0f, 0.0f),
+	glm::vec3(0.0f, 1.0f, 0.0f));
+
+glm::mat4 lightSpaceMatrix = lightProjection * lightView;
+
 bool Window::initializeProgram() {
 	// Create a shader program with a vertex shader and a fragment shader.
     //call the program what shader it is supposed to be for
@@ -98,6 +116,47 @@ bool Window::initializeProgram() {
 		std::cerr << "Failed to initialize shader program" << std::endl;
 		return false;
 	}
+
+	simpleDepthShader = LoadShaders("shaders/simpleDepthShader.vert", "shaders/simpleDepthShader.frag");
+	// Check the shader program.
+	if (!simpleDepthShader)
+	{
+		std::cerr << "Failed to initialize simpleDepthShader program" << std::endl;
+		return false;
+	}
+
+	debugDepthQuad = LoadShaders("shaders/debugDepthQuad.vert", "shaders/debugDepthQuad.frag");
+	// Check the shader program.
+	if (!debugDepthQuad)
+	{
+		std::cerr << "Failed to initialize debugDepthQuad program" << std::endl;
+		return false;
+	}
+
+	// Setup frameBuffer object for depth map
+	glGenFramebuffers(1, &depthMapFBO);
+
+	// Setup 2D texture for depth buffer
+	glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+
+	//Bind 2d depth texture to depth buffer
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, depthMap, 0);
+	glDrawBuffer(GL_NONE);
+	glReadBuffer(GL_NONE);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	// quad setup
+	glUseProgram(debugDepthQuad);
+	glBindSampler(GL_INT_SAMPLER_2D, depthMap);
 
 	// Activate the shader program.
 	glUseProgram(program);
@@ -220,27 +279,60 @@ void Window::idleCallback()
 
 void Window::displayCallback(GLFWwindow* window)
 {	
+	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	glUseProgram(simpleDepthShader);
+	GLuint lightSpaceMatrixLocation = glGetUniformLocation(simpleDepthShader, "lightSpaceMatrix");
+	glUniformMatrix4fv(lightSpaceMatrixLocation, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+	GLuint lightSpaceModelLocation = glGetUniformLocation(simpleDepthShader, "model");
+	glUniformMatrix4fv(lightSpaceModelLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
+
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	root->draw(simpleDepthShader, glm::mat4(1.0f));
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+	glViewport(0, 0, width, height);
 	// Clear the color and depth buffers.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    
-	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-	glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
 
-	glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
-	glUniform1f(lgtConsLoc, 1.0f);
-	glUniform1f(lgtLineLoc, 0.09f);
-	glUniform1f(lgtQuadLoc, 0.032f);
-	glUniform3f(lgtAmbiLoc, 1.0f, 1.0f, 1.0f);
-	glUniform3f(lgtDiffLoc, 1.0f, 1.0f, 1.0f);
-	glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
+	if (debugFlag) {
+		glUseProgram(debugDepthQuad);
 
-	glUniform1i(celFlagLoc, cFlag);
+		GLuint npl = glGetUniformLocation(debugDepthQuad, "near_plane");
+		GLuint fpl = glGetUniformLocation(debugDepthQuad, "far_plane");
+		glUniform1f(npl, near_plane);
+		glUniform1f(fpl, far_plane);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+		renderQuad();
+	}
+	else {
+		glUseProgram(program);
 
-	// Render the object with the appropriate shader program, might need something special inside subclasses so
-    // the transforms know which shader they should use
-	root->draw(program, glm::mat4(1.0f));
-    
+		//ConfigureShaderAndMatrices();
+		glBindTexture(GL_TEXTURE_2D, depthMap);
+
+		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+		glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
+
+		glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
+		glUniform1f(lgtConsLoc, 1.0f);
+		glUniform1f(lgtLineLoc, 0.09f);
+		glUniform1f(lgtQuadLoc, 0.032f);
+		glUniform3f(lgtAmbiLoc, 1.0f, 1.0f, 1.0f);
+		glUniform3f(lgtDiffLoc, 1.0f, 1.0f, 1.0f);
+		glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
+
+		glUniform1i(celFlagLoc, cFlag);
+
+		// Render the object with the appropriate shader program, might need something special inside subclasses so
+		// the transforms know which shader they should use
+		root->draw(program, glm::mat4(1.0f));
+	}
 	// Gets events, including input such as keyboard and mouse or window resizing.
 	glfwPollEvents();
 	// Swap buffers.
@@ -362,12 +454,42 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
 				cFlag = !cFlag;
                 break;
             }
-            case GLFW_KEY_N:{
-               
+            case GLFW_KEY_D:{
+				debugFlag = !debugFlag;
+				break;
             }
             default:{
 			break;
             }
 		}
 	}
+}
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void Window::renderQuad()
+{
+	if (quadVAO == 0)
+	{
+		float quadVertices[] = {
+			// positions        // texture Coords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			 1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			 1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+		// setup plane VAO
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	}
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
 }
