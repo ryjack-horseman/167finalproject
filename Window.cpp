@@ -98,7 +98,7 @@ glm::vec3 lightDirection = glm::vec3(2.0f, 1.0f, 1.0f);
 
 unsigned int depthMapFBO;
 
-const unsigned int SHADOW_WIDTH = 8112, SHADOW_HEIGHT = 8112;
+const unsigned int SHADOW_WIDTH = 8056, SHADOW_HEIGHT = 8056;
 
 unsigned int depthMap;
 
