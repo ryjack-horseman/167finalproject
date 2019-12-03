@@ -98,7 +98,7 @@ glm::vec3 lightDirection = glm::vec3(2.0f, 1.0f, 1.0f);
 
 unsigned int depthMapFBO;
 
-const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+const unsigned int SHADOW_WIDTH = 8112, SHADOW_HEIGHT = 8112;
 
 unsigned int depthMap;
 
@@ -148,8 +148,11 @@ bool Window::initializeProgram() {
 		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	// take care of possible frags and verts currently outside of depth map
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+	float borderColor[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 
 	//Bind 2d depth texture to depth buffer
@@ -162,8 +165,6 @@ bool Window::initializeProgram() {
 	// Activate the shader program.
 	glUseProgram(program);
 	// Get the locations of uniform variables.
-
-	GLuint shadowMapLoc = glGetUniformLocation(program, "shadowMap");
 	
 	glBindSampler(GL_INT_SAMPLER_2D, 1);
 
@@ -195,11 +196,11 @@ bool Window::initializeObjects()
 {
         // build out environment and the scene graph
 	glm::mat4 T = glm::mat4(1);
-	T = glm::translate(T, glm::vec3(-1, -1, 0));
+	T = glm::translate(T, glm::vec3(-1.5, -1, -0.5));
 	sphere1 = new Geometry(T, "sphere.obj", (float)width, (float)height,
 		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
 
-	T = glm::translate(glm::mat4(1), glm::vec3(0, 1, 0));
+	T = glm::translate(glm::mat4(1), glm::vec3(0, 0.5, 0));
 	sphere2 = new Geometry(T, "sphere.obj", (float)width, (float)height,
 		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f);
 
@@ -310,7 +311,9 @@ void Window::displayCallback(GLFWwindow* window)
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
+	glCullFace(GL_FRONT);
 	root->draw(simpleDepthShader, glm::mat4(1.0f));
+	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	glViewport(0, 0, width, height);
@@ -331,7 +334,6 @@ void Window::displayCallback(GLFWwindow* window)
 	else {
 		glUseProgram(program);
 
-		//ConfigureShaderAndMatrices();
 		glBindTexture(GL_TEXTURE_2D, depthMap);
 
 		GLuint lsmLoc = glGetUniformLocation(program, "lightSpaceMatrix");

@@ -37,6 +37,15 @@ uniform bool shadowFlag;
 
 uniform sampler2D shadowMap;
 
+vec3 norm = normalize(normalOutput);
+vec3 viewDir = normalize(viewPos - posOutput);
+vec3 lightDir = normalize(light.direction);
+vec3 reflectDir = reflect(-lightDir, norm);
+
+// You can output many things. The first vec4 type output determines the color of the fragment
+out vec4 fragColor;
+
+// For shadow mapping, specifically reading from depthmap to determine if point is in shadow
 float ShadowCalculation(vec4 posLightSpaceOutput)
 {
     // perform perspective divide
@@ -47,22 +56,28 @@ float ShadowCalculation(vec4 posLightSpaceOutput)
     float closestDepth = texture(shadowMap, vec2(projCoords)).r; 
     // get depth of current fragment from light's perspective
     float currentDepth = projCoords.z;
+    // calculate bias to eliminate moire
+    float bias = max(0.05 * (1.0 - dot(norm, lightDir)), 0.005); 
     // check whether current frag pos is in shadow
-    float shadow = currentDepth > closestDepth  ? 1.0 : 0.0;
+    float shadow = 0.0;
+    // only calculate shadows within light fustrum
+    if(!(projCoords.z > 1.0)) {
+        // pcf to smooth shadow edges
+        vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+        for(int x = -1; x <= 1; ++x) {
+            for(int y = -1; y <= 1; ++y) {
+                float pcfDepth = texture(shadowMap, vec2(projCoords) + vec2(x, y) * texelSize).r; 
+                shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
+            }    
+        }
+        shadow /= 9.0;
+    }
     
     return shadow;
 }
 
-
-// You can output many things. The first vec4 type output determines the color of the fragment
-out vec4 fragColor;
-
 void main()
 {
-    vec3 norm = normalize(normalOutput);
-    vec3 viewDir = normalize(viewPos - posOutput);
-    vec3 lightDir = normalize(light.direction);
-    vec3 reflectDir = reflect(-lightDir, norm);
 
     float shadow = 0.0;
     if (shadowFlag) shadow = ShadowCalculation(posLightSpaceOutput);
@@ -105,7 +120,7 @@ void main()
 
     } else {
 
-        // NORMAL PHONG SHADING
+        // NORMAL DIRECTIONAL PHONG SHADING
 
         //float distance = length(light.position - posOutput);
         //float attenuation = 1.0f / (light.constant + light.linear * distance + light.quadratic * (distance  * distance));
