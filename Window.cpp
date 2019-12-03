@@ -102,10 +102,10 @@ const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
 unsigned int depthMap;
 
-float near_plane = 1.0f, far_plane = 50.0f;
-glm::mat4 lightProjection = glm::ortho(-10.0f, 10.0f, -10.0f, 10.0f, near_plane, far_plane);
+float near_plane = 0.0f, far_plane = 100.0f;
+glm::mat4 lightProjection = glm::ortho(-50.0f, 50.0f, -50.0f, 50.0f, near_plane, far_plane);
 
-glm::mat4 lightView = glm::lookAt(lightDirection * 10.0f,
+glm::mat4 lightView = glm::lookAt(lightDirection,
 	glm::vec3(0.0f, 0.0f, 0.0f),
 	glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -165,7 +165,7 @@ bool Window::initializeProgram() {
 
 	GLuint shadowMapLoc = glGetUniformLocation(program, "shadowMap");
 	
-	glUniform1i(shadowMapLoc, 1);
+	glBindSampler(GL_INT_SAMPLER_2D, 1);
 
 	projectionLoc = glGetUniformLocation(program, "projection");
 	viewLoc = glGetUniformLocation(program, "view");
@@ -195,11 +195,11 @@ bool Window::initializeObjects()
 {
         // build out environment and the scene graph
 	glm::mat4 T = glm::mat4(1);
-	T = glm::translate(T, glm::vec3(-2, -1, 0));
+	T = glm::translate(T, glm::vec3(-1, -1, 0));
 	sphere1 = new Geometry(T, "sphere.obj", (float)width, (float)height,
 		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
 
-	T = glm::translate(glm::mat4(1), glm::vec3(2, 1, 0));
+	T = glm::translate(glm::mat4(1), glm::vec3(0, 1, 0));
 	sphere2 = new Geometry(T, "sphere.obj", (float)width, (float)height,
 		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f);
 
