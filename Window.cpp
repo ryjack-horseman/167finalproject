@@ -38,6 +38,7 @@ GLuint simpleDepthShader, debugDepthQuad;
 bool debugFlag = 0;
 GLuint shadowFlagLoc;
 bool sFlag = 1;
+bool quadFlag = 1;
 
 // Materials List
 std::vector<glm::vec3> highSpecular = {
@@ -189,6 +190,11 @@ bool Window::initializeProgram() {
 	glUseProgram(debugDepthQuad);
 	glBindSampler(GL_INT_SAMPLER_2D, 0);
 
+	std::cout << ".\n.\n.\nHit 'C' to toggle Cel_Shading." << std::endl;
+	std::cout << "-----\nHit 'D' to toggle Debug_Mode." << std::endl;
+	std::cout << "-----\nHit 'Q' while in in Debug_Mode to toggle Depth_Map_Fullscreen." << std::endl;
+	std::cout << "-----\nHit 'S' to toggle Shadow_Mapping." << std::endl;
+	std::cout << "-----\nHit 'ESCAPE' to exit Program." << std::endl;
 	return true;
 }
 
@@ -297,8 +303,7 @@ void Window::idleCallback()
   
 }
 
-void Window::displayCallback(GLFWwindow* window)
-{	
+void Window::buildShadowMap() {
 	glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -308,6 +313,7 @@ void Window::displayCallback(GLFWwindow* window)
 	GLuint lightSpaceModelLocation = glGetUniformLocation(simpleDepthShader, "model");
 	glUniformMatrix4fv(lightSpaceModelLocation, 1, GL_FALSE, glm::value_ptr(glm::mat4(1.0f)));
 
+	// generating depth map
 	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
 	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -315,50 +321,79 @@ void Window::displayCallback(GLFWwindow* window)
 	root->draw(simpleDepthShader, glm::mat4(1.0f));
 	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
 
+void Window::drawQuadMap() {
+	// drawing shadowmap quad
+	glUseProgram(debugDepthQuad);
+
+	GLuint npl = glGetUniformLocation(debugDepthQuad, "near_plane");
+	GLuint fpl = glGetUniformLocation(debugDepthQuad, "far_plane");
+	glUniform1f(npl, near_plane);
+	glUniform1f(fpl, far_plane);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	renderQuad();
+}
+
+void Window::drawScene() {
+	glUseProgram(program);
+
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+
+	GLuint lsmLoc = glGetUniformLocation(program, "lightSpaceMatrix");
+	glUniformMatrix4fv(lsmLoc, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
+
+	glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+	glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
+	glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
+
+	glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
+	glUniform3fv(lgtDirLoc, 1, glm::value_ptr(lightDirection));
+	glUniform1f(lgtConsLoc, 1.0f);
+	glUniform1f(lgtLineLoc, 0.09f);
+	glUniform1f(lgtQuadLoc, 0.032f);
+	glUniform3f(lgtAmbiLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(lgtDiffLoc, 1.0f, 1.0f, 1.0f);
+	glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
+
+	glUniform1i(celFlagLoc, cFlag);
+	glUniform1i(shadowFlagLoc, sFlag);
+
+	// Render the object with the appropriate shader program, might need something special inside subclasses so
+	// the transforms know which shader they should use
+	root->draw(program, glm::mat4(1.0f));
+}
+
+void Window::displayCallback(GLFWwindow* window)
+{	
+	// build shadowmap
+	buildShadowMap();
+
+	// drawing scene
 	glViewport(0, 0, width, height);
 	// Clear the color and depth buffers.
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	if (debugFlag) {
-		glUseProgram(debugDepthQuad);
+	drawScene();
 
-		GLuint npl = glGetUniformLocation(debugDepthQuad, "near_plane");
-		GLuint fpl = glGetUniformLocation(debugDepthQuad, "far_plane");
-		glUniform1f(npl, near_plane);
-		glUniform1f(fpl, far_plane);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-		renderQuad();
+	if (debugFlag) {
+		if (!quadFlag) {
+			drawScene();
+
+			// drawing shadowmap quad
+			glViewport(width * 2 / 3, 0, width / 3, height / 3);
+			drawQuadMap();
+		}
+		else {
+			drawQuadMap();
+		}
 	}
 	else {
-		glUseProgram(program);
-
-		glBindTexture(GL_TEXTURE_2D, depthMap);
-
-		GLuint lsmLoc = glGetUniformLocation(program, "lightSpaceMatrix");
-		glUniformMatrix4fv(lsmLoc, 1, GL_FALSE, glm::value_ptr(lightSpaceMatrix));
-
-		glUniformMatrix4fv(projectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-		glUniformMatrix4fv(viewLoc, 1, GL_FALSE, glm::value_ptr(view));
-		glUniform3fv(viewPosLoc, 1, glm::value_ptr(eye));
-
-		glUniform3f(lgtPosLoc, 3.0f, 3.0f, 6.0f);
-		glUniform3fv(lgtDirLoc, 1, glm::value_ptr(lightDirection));
-		glUniform1f(lgtConsLoc, 1.0f);
-		glUniform1f(lgtLineLoc, 0.09f);
-		glUniform1f(lgtQuadLoc, 0.032f);
-		glUniform3f(lgtAmbiLoc, 1.0f, 1.0f, 1.0f);
-		glUniform3f(lgtDiffLoc, 1.0f, 1.0f, 1.0f);
-		glUniform3f(lgtSpecLoc, 1.0f, 1.0f, 1.0f);
-
-		glUniform1i(celFlagLoc, cFlag);
-		glUniform1i(shadowFlagLoc, sFlag);
-
-		// Render the object with the appropriate shader program, might need something special inside subclasses so
-		// the transforms know which shader they should use
-		root->draw(program, glm::mat4(1.0f));
+		drawScene();
+		quadFlag = 0;
 	}
+
 	// Gets events, including input such as keyboard and mouse or window resizing.
 	glfwPollEvents();
 	// Swap buffers.
@@ -447,45 +482,24 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
 			glfwSetWindowShouldClose(window, GL_TRUE);				
 			break;
             }
-            case GLFW_KEY_1:{
-			// Set currentObj to cube
-                
-			break;
-            }
-            case GLFW_KEY_2: {
-			// Set currentObj to cubePoints
-			//currentObj = dragonPoints;
-                
-			break;
-            }
-            case GLFW_KEY_3:{
-              
+			case GLFW_KEY_C: {
+				cFlag = !cFlag;
+				break;
+			}
+			case GLFW_KEY_D: {
+				debugFlag = !debugFlag;
+				break;
+			}
+            case GLFW_KEY_Q:{
+				quadFlag = !quadFlag;
                 break;
-            }
-            case GLFW_KEY_4:{
-              
-                break;
-                
-            }
-            case GLFW_KEY_5:{
-             
-                break;
-                
             }
             case GLFW_KEY_S:{
 				sFlag = !sFlag;
                 break;
             }
-            case GLFW_KEY_C:{
-				cFlag = !cFlag;
-                break;
-            }
-            case GLFW_KEY_D:{
-				debugFlag = !debugFlag;
-				break;
-            }
             default:{
-			break;
+				break;
             }
 		}
 	}

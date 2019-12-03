@@ -64,15 +64,17 @@ float ShadowCalculation(vec4 posLightSpaceOutput)
     if(!(projCoords.z > 1.0)) {
         // pcf to smooth shadow edges
         vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
-        for(int x = -1; x <= 1; ++x) {
-            for(int y = -1; y <= 1; ++y) {
+
+        int size = 9;
+        for(int x = -size; x <= size; ++x) {
+            for(int y = -size; y <= size; ++y) {
                 float pcfDepth = texture(shadowMap, vec2(projCoords) + vec2(x, y) * texelSize).r; 
                 shadow += currentDepth - bias > pcfDepth ? 1.0 : 0.0;        
             }    
         }
-        shadow /= 9.0;
+        shadow /= 441.0;
     }
-    
+
     return shadow;
 }
 

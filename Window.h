@@ -64,6 +64,9 @@ public:
     static glm::vec3 trackBallMapping(glm::vec2 point);
     static void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 	static void renderQuad();
+	static void buildShadowMap();
+	static void drawQuadMap();
+	static void drawScene();
 };
 
 #endif
