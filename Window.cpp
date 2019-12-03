@@ -200,7 +200,9 @@ bool Window::initializeProgram() {
 
 bool Window::initializeObjects()
 {
-        // build out environment and the scene graph
+    // build out environment and the scene graph
+
+	// THESE ARE TEST OBJECTS
 	glm::mat4 T = glm::mat4(1);
 	T = glm::translate(T, glm::vec3(-1.5, -1, -0.5));
 	sphere1 = new Geometry(T, "sphere.obj", (float)width, (float)height,
