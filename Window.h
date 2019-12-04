@@ -26,6 +26,8 @@
 #include "Transform.h"
 #include "Node.h"
 #include "Geometry.h"
+#include "map.h"
+#include "mapMesh.h"
 class Window
 {
 public:
@@ -44,6 +46,7 @@ public:
     static Transform * root;
 	static glm::mat4 projection;
 	static glm::mat4 view;
+    static glm::mat4 mapModel;
 	static glm::vec3 eye, center, up;
     static GLuint program;
     
@@ -67,6 +70,7 @@ public:
 	static void buildShadowMap();
 	static void drawQuadMap();
 	static void drawScene();
+    static bool setupMap();
 };
 
 #endif

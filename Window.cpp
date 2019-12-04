@@ -3,7 +3,7 @@
 int Window::width;
 int Window::height;
 int Window::Movement;
-float Window::fov = 50.0f;
+float Window::fov = 100.0f;
 float Window::position = 0.0f;
 Transform * Window::root = new Transform(glm::mat4(1));
 glm::vec3 Window::lastPosition;
@@ -19,7 +19,7 @@ glm::mat4 Window::projection; // Projection matrix.
 glm::vec3 Window::eye(0, 0, 5); // Camera position.
 glm::vec3 Window::center(0, 0, 0); // The point we are looking at.
 glm::vec3 Window::up(0, 1, 0); // The up direction of the camera.
-
+glm::mat4 Window::mapModel(1.0f);
 // View matrix, defined by eye, center and up.
 glm::mat4 Window::view = glm::lookAt(Window::eye, Window::center, Window::up);
 
@@ -29,17 +29,24 @@ GLuint modelLoc; // Location of model in shader.
 GLuint viewPosLoc;
 
 // Light shader uniforms
-GLuint lgtPosLoc, lgtDirLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc;
+GLuint lgtPosLoc, lgtDirLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc, mapModelLoc, mapViewLoc,
+mapProjectionLoc, mapLightLoc;
 GLuint celFlagLoc;
 bool cFlag = 1;
 
 GLuint Window::program; // The shader program id.
-GLuint simpleDepthShader, debugDepthQuad;
+GLuint simpleDepthShader, debugDepthQuad, mapShader;
 bool debugFlag = 0;
 GLuint shadowFlagLoc;
 bool sFlag = 1;
 bool quadFlag = 1;
+//terrain map stuff --- uses diamond square
 
+int mapsize = 1024;
+//seed, will change to srand later but this is just for now
+int start = 64;
+map heightMap(mapsize+1,mapsize+1);
+mapMesh mesh(mapsize, 2.0f);
 // Materials List
 std::vector<glm::vec3> highSpecular = {
 
@@ -112,6 +119,8 @@ glm::mat4 lightView = glm::lookAt(lightDirection,
 
 glm::mat4 lightSpaceMatrix = lightProjection * lightView;
 
+
+
 bool Window::initializeProgram() {
 	// Create a shader program with a vertex shader and a fragment shader.
     //call the program what shader it is supposed to be for
@@ -122,7 +131,12 @@ bool Window::initializeProgram() {
 		std::cerr << "Failed to initialize shader program" << std::endl;
 		return false;
 	}
-
+    mapShader = LoadShaders("shaders/mapShader.vert", "shaders/mapShader.frag");
+    if (!mapShader)
+    {
+        std::cerr << "Failed to initialize mapShader program" << std::endl;
+        return false;
+    }
 	simpleDepthShader = LoadShaders("shaders/simpleDepthShader.vert", "shaders/simpleDepthShader.frag");
 	// Check the shader program.
 	if (!simpleDepthShader)
@@ -189,7 +203,20 @@ bool Window::initializeProgram() {
 	// quad setup
 	glUseProgram(debugDepthQuad);
 	glBindSampler(GL_INT_SAMPLER_2D, 0);
-
+    
+    //map setup
+    
+    if(!setupMap()){
+        std::cerr << "Failed to initialize setupMap program" << std::endl;
+        return false;
+    }
+    glUseProgram(mapShader);
+    mapProjectionLoc = glGetUniformLocation(mapShader, "projection");
+    mapViewLoc = glGetUniformLocation(mapShader, "view");
+    mapModelLoc = glGetUniformLocation(mapShader, "model");
+    mapLightLoc = glGetUniformLocation(mapShader, "in_light");
+    
+   
 	std::cout << ".\n.\n.\nHit 'C' to toggle Cel_Shading." << std::endl;
 	std::cout << "-----\nHit 'D' to toggle Debug_Mode." << std::endl;
 	std::cout << "-----\nHit 'Q' while in in Debug_Mode to toggle Depth_Map_Fullscreen." << std::endl;
@@ -205,16 +232,18 @@ bool Window::initializeObjects()
 	// THESE ARE TEST OBJECTS
 	glm::mat4 T = glm::mat4(1);
 	T = glm::translate(T, glm::vec3(-1.5, -1, -0.5));
-	sphere1 = new Geometry(T, "sphere.obj", (float)width, (float)height,
+	sphere1 = new Geometry(T, "/Users/ryanjackson/cse167/sphere.obj", (float)width, (float)height,
 		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
 
 	T = glm::translate(glm::mat4(1), glm::vec3(0, 0.5, 0));
-	sphere2 = new Geometry(T, "sphere.obj", (float)width, (float)height,
+	sphere2 = new Geometry(T, "/Users/ryanjackson/cse167/sphere.obj", (float)width, (float)height,
 		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f);
 
 	root->addChild(sphere1);
 	root->addChild(sphere2);
 
+     mesh.initVertArray();
+    mapModel = mapModel * glm::translate(glm::vec3(0.0f, -2.0f, 4.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
 	return true;
 }
 
@@ -295,7 +324,7 @@ void Window::resizeCallback(GLFWwindow* window, int width, int height)
 	glViewport(0, 0, width, height);
 
 	// Set the projection matrix.
-	Window::projection = glm::perspective(glm::radians(60.0), 
+	Window::projection = glm::perspective(glm::radians(100.0),
 		double(width) / (double)height, 1.0, 1000.0);
 }
 
@@ -362,9 +391,20 @@ void Window::drawScene() {
 	glUniform1i(celFlagLoc, cFlag);
 	glUniform1i(shadowFlagLoc, sFlag);
 
+    
 	// Render the object with the appropriate shader program, might need something special inside subclasses so
 	// the transforms know which shader they should use
-	root->draw(program, glm::mat4(1.0f));
+   // root->draw(program, glm::mat4(1.0f));
+    projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 1000.0f);
+    view = glm::lookAt(Window::eye, Window::center, Window::up);
+    glm::vec3 mapLight(0.0f, 1.0f, -2.0f);
+    glUseProgram(mapShader);
+    glUniformMatrix4fv(mapProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(mapViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    glUniformMatrix4fv(mapModelLoc, 1, GL_FALSE, glm::value_ptr(mapModel));
+    glUniform3fv(mapLightLoc, 1, glm::value_ptr(mapLight) );
+
+    mesh.draw();
 }
 
 void Window::displayCallback(GLFWwindow* window)
@@ -447,12 +487,12 @@ void Window::mouse_callback(GLFWwindow * window, int button, int actions, int mo
 }
 
 void Window::scroll_callback(GLFWwindow * window, double xoffset, double yoffset){
-   if (fov >= 5.0f && fov <= 50.0f)
+   if (fov >= 5.0f && fov <= 100.0f)
        fov -= yoffset;
    if (fov <= 5.0f)
        fov = 5.0f;
-   if (fov >= 50.0f)
-       fov = 50.0f;
+   if (fov >= 100.0f)
+       fov = 100.0f;
 }
 
 glm::vec3 Window::trackBallMapping(glm::vec2 point){
@@ -460,8 +500,8 @@ glm::vec3 Window::trackBallMapping(glm::vec2 point){
     glm::vec3 v;
     float d;
     
-    v.x = ((2.0f * point.x) - width)/height;
-    v.y = (height - 2.0f * point.y)/height;
+    v.x = ((2.0f * point.x) - 640)/480;
+    v.y = (height - 2.0f * point.y)/480;
     v.z = 0.0f;
     
     d = glm::length(v);
@@ -534,4 +574,35 @@ void Window::renderQuad()
 	glBindVertexArray(quadVAO);
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 	glBindVertexArray(0);
+}
+
+bool Window::setupMap(){
+    
+   // Map heightMap(mapsize+1,mapsize+1);
+
+    heightMap.setElement(0, 0, start);
+    heightMap.setElement(0, mapsize, start);
+    heightMap.setElement(mapsize, 0, start);
+    heightMap.setElement(mapsize, mapsize, start);
+
+    heightMap.generate(mapsize + 1, 60, 0.59);
+    heightMap.capData(0, 255);
+    heightMap.smooth(1, 2);
+    
+    std::vector<GLfloat> heightdata;
+    for (int y = 0; y != heightMap.getY(); y++)
+    {
+        for (int x = 0; x != heightMap.getX(); x++)
+        {
+            heightdata.push_back((GLfloat(heightMap.getElement(x,y)))/255);
+        }
+    }
+    
+    //mapMesh mesh(mapsize, 2.0f);
+    
+    mesh.genTriangleMesh(heightdata);
+    int size = heightdata.size();
+    std::cout << size << std::endl;
+    mesh.genTriangleNormals();
+    return true;
 }
