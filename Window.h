@@ -48,7 +48,7 @@ public:
 	static glm::mat4 view;
     static glm::mat4 mapModel;
 	static glm::vec3 eye, center, up;
-    static GLuint program;
+    static GLuint program, fireProjectionLoc, fireModelLoc, fireViewLoc, fireColorLoc, fireOffsetLoc;
     
     static float fov;
     static float position;
@@ -71,6 +71,7 @@ public:
 	static void drawQuadMap();
 	static void drawScene();
     static bool setupMap();
+    
 };
 
 #endif

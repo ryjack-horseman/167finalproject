@@ -1,5 +1,6 @@
 #include "Window.h"
 #include <glm/gtx/transform.hpp>
+#include "Cube.h"
 int Window::width;
 int Window::height;
 int Window::Movement;
@@ -8,20 +9,21 @@ float Window::position = 0.0f;
 Transform * Window::root = new Transform(glm::mat4(1));
 glm::vec3 Window::lastPosition;
 glm::vec3 Window::startingPos;
-
 const char* Window::windowTitle = "GLFW Starter Project";
 // Objects to display.
 Geometry*sphere1;
 Geometry*sphere2;
-
+Geometry*table;
+Transform* tablescale;
 glm::mat4 Window::projection; // Projection matrix.
 
-glm::vec3 Window::eye(0, 0, 5); // Camera position.
-glm::vec3 Window::center(0, 0, 0); // The point we are looking at.
+glm::vec3 Window::eye(0, 4, 8); // Camera position.
+glm::vec3 Window::center(0, 0, -1); // The point we are looking at.
 glm::vec3 Window::up(0, 1, 0); // The up direction of the camera.
 glm::mat4 Window::mapModel(1.0f);
+Cube * cube;
 // View matrix, defined by eye, center and up.
-glm::mat4 Window::view = glm::lookAt(Window::eye, Window::center, Window::up);
+glm::mat4 Window::view = glm::lookAt(Window::eye, Window::center + Window::eye, Window::up);
 
 GLuint projectionLoc; // Location of projection in shader.
 GLuint viewLoc; // Location of view in shader.
@@ -30,12 +32,12 @@ GLuint viewPosLoc;
 
 // Light shader uniforms
 GLuint lgtPosLoc, lgtDirLoc, lgtConsLoc, lgtLineLoc, lgtQuadLoc, lgtAmbiLoc, lgtDiffLoc, lgtSpecLoc, mapModelLoc, mapViewLoc,
-mapProjectionLoc, mapLightLoc;
+mapProjectionLoc, mapLightLoc, skyboxViewLoc, skyboxSamplerLoc, skyBoxProjectionLoc;
 GLuint celFlagLoc;
 bool cFlag = 1;
 
 GLuint Window::program; // The shader program id.
-GLuint simpleDepthShader, debugDepthQuad, mapShader;
+GLuint simpleDepthShader, debugDepthQuad, mapShader, skyboxShader;
 bool debugFlag = 0;
 GLuint shadowFlagLoc;
 bool sFlag = 1;
@@ -74,6 +76,7 @@ std::vector<glm::vec3> highDiffSpec = {
 	glm::vec3(0.992157f, 0.941176f, 0.807843f),
 
 };
+
 
 std::vector<glm::vec3> lightAmbi = {
 
@@ -152,7 +155,13 @@ bool Window::initializeProgram() {
 		std::cerr << "Failed to initialize debugDepthQuad program" << std::endl;
 		return false;
 	}
-
+    
+    skyboxShader = LoadShaders("shaders/skyboxShader.vert", "shaders/skyboxShader.frag");
+    if(!skyboxShader){
+        std::cerr << "Failed to initialize skyboxShader program" << std::endl;
+        return false;
+    }
+    
 	// Setup frameBuffer object for depth map
 	glGenFramebuffers(1, &depthMapFBO);
 
@@ -216,6 +225,10 @@ bool Window::initializeProgram() {
     mapModelLoc = glGetUniformLocation(mapShader, "model");
     mapLightLoc = glGetUniformLocation(mapShader, "in_light");
     
+    glUseProgram(skyboxShader);
+    skyBoxProjectionLoc = glGetUniformLocation(skyboxShader, "projection");
+    skyboxViewLoc = glGetUniformLocation(skyboxShader, "view");
+    skyboxSamplerLoc = glGetUniformLocation(skyboxShader, "skybox");
    
 	std::cout << ".\n.\n.\nHit 'C' to toggle Cel_Shading." << std::endl;
 	std::cout << "-----\nHit 'D' to toggle Debug_Mode." << std::endl;
@@ -233,17 +246,22 @@ bool Window::initializeObjects()
 	glm::mat4 T = glm::mat4(1);
 	T = glm::translate(T, glm::vec3(-1.5, -1, -0.5));
 	sphere1 = new Geometry(T, "/Users/ryanjackson/cse167/sphere.obj", (float)width, (float)height,
-		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f);
+		glm::vec3(237.0f/256.0f, 116.0f / 256.0f, 116.0f / 256.0f), chrome, 0.6f, false);
 
 	T = glm::translate(glm::mat4(1), glm::vec3(0, 0.5, 0));
 	sphere2 = new Geometry(T, "/Users/ryanjackson/cse167/sphere.obj", (float)width, (float)height,
-		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f);
-
+		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, false);
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 1.0f, 0.6f));
+    table = new Geometry(T, "/Users/ryanjackson/cse167/table1.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, true);
+    
+  //tablescale = new Transform(T);
 	root->addChild(sphere1);
-	root->addChild(sphere2);
-
+    root->addChild(sphere2);
+   // tablescale->addChild(table);
+   // root->addChild(table);
+    //cube = new Cube();
      mesh.initVertArray();
-    mapModel = mapModel * glm::translate(glm::vec3(0.0f, -2.0f, 4.0f)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f));
+    mapModel = mapModel * glm::translate(glm::vec3(0.0f, 3.0f, 0.3f)) * glm::scale(glm::mat4(0.3f), glm::vec3(1.2f, 1.0f, 2.4f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
 	return true;
 }
 
@@ -368,6 +386,7 @@ void Window::drawQuadMap() {
 }
 
 void Window::drawScene() {
+   
 	glUseProgram(program);
 
 	glBindTexture(GL_TEXTURE_2D, depthMap);
@@ -394,17 +413,22 @@ void Window::drawScene() {
     
 	// Render the object with the appropriate shader program, might need something special inside subclasses so
 	// the transforms know which shader they should use
-   // root->draw(program, glm::mat4(1.0f));
+    root->draw(program, glm::mat4(1.0f));
     projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 1000.0f);
-    view = glm::lookAt(Window::eye, Window::center, Window::up);
+    view = glm::lookAt(Window::eye, Window::center + eye, Window::up);
     glm::vec3 mapLight(0.0f, 1.0f, -2.0f);
     glUseProgram(mapShader);
     glUniformMatrix4fv(mapProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(mapViewLoc, 1, GL_FALSE, glm::value_ptr(view));
     glUniformMatrix4fv(mapModelLoc, 1, GL_FALSE, glm::value_ptr(mapModel));
-    glUniform3fv(mapLightLoc, 1, glm::value_ptr(mapLight) );
+    glUniform3f(mapLightLoc, 0.0f, 1.0f, 2.0f);
 
-    mesh.draw();
+    //mesh.draw();
+    glUseProgram(skyboxShader);
+    glUniformMatrix4fv(skyBoxProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    glUniformMatrix4fv(skyboxViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+    //cube->draw();
+    //Particles->Draw(fireShader);
 }
 
 void Window::displayCallback(GLFWwindow* window)
@@ -487,12 +511,12 @@ void Window::mouse_callback(GLFWwindow * window, int button, int actions, int mo
 }
 
 void Window::scroll_callback(GLFWwindow * window, double xoffset, double yoffset){
-   if (fov >= 5.0f && fov <= 100.0f)
+   if (fov >= 5.0f && fov <= 600.0f)
        fov -= yoffset;
    if (fov <= 5.0f)
        fov = 5.0f;
-   if (fov >= 100.0f)
-       fov = 100.0f;
+   if (fov >= 600.0f)
+       fov = 600.0f;
 }
 
 glm::vec3 Window::trackBallMapping(glm::vec2 point){
@@ -538,6 +562,22 @@ void Window::keyCallback(GLFWwindow* window, int key, int scancode, int action, 
             }
             case GLFW_KEY_S:{
 				sFlag = !sFlag;
+                break;
+            }
+            case GLFW_KEY_U:{
+                eye += center *0.5;
+                break;
+            }
+            case GLFW_KEY_J:{
+                eye -= center * 0.5;
+                break;
+            }
+            case GLFW_KEY_K:{
+                eye +=  glm::normalize(glm::cross(center, up)) * 0.5;
+                break;
+            }
+            case GLFW_KEY_H:{
+                eye -=  glm::normalize(glm::cross(center, up)) * 0.5;
                 break;
             }
             default:{
@@ -606,3 +646,4 @@ bool Window::setupMap(){
     mesh.genTriangleNormals();
     return true;
 }
+

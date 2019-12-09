@@ -20,12 +20,12 @@ private:
 	GLuint vao;
 	GLuint vbos[2];
 public:
-	Cube(float size);
+	Cube();
 	~Cube();
-
+unsigned int cubemapTexture;
 	void draw();
 	void update();
-
+  unsigned int loadCubemap(std::vector<std::string> faces);
 	void spin(float deg);
 };
 

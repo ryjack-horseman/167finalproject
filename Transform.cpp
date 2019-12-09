@@ -23,6 +23,9 @@ void Transform::addChild(Node * child){
 void Transform::draw(GLuint shaderProgram, glm::mat4 C){
     if(this->drawChildren){
     for(auto const& i : Transform::children){
+        if(i == NULL){
+            std::cout << "oops" << std::endl;
+        }
         i->draw(shaderProgram, C * Transform::transMat);
     }
 }
