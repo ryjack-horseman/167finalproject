@@ -4,7 +4,7 @@
 int Window::width;
 int Window::height;
 int Window::Movement;
-float Window::fov = 100.0f;
+float Window::fov = 45.0f;
 float Window::position = 0.0f;
 Transform * Window::root = new Transform(glm::mat4(1));
 glm::vec3 Window::lastPosition;
@@ -14,6 +14,7 @@ const char* Window::windowTitle = "GLFW Starter Project";
 Geometry*sphere1;
 Geometry*sphere2;
 Geometry*table;
+Geometry*mapholder;
 Transform* tablescale;
 glm::mat4 Window::projection; // Projection matrix.
 
@@ -21,6 +22,11 @@ glm::vec3 Window::eye(0, 4, 8); // Camera position.
 glm::vec3 Window::center(0, 0, -1); // The point we are looking at.
 glm::vec3 Window::up(0, 1, 0); // The up direction of the camera.
 glm::mat4 Window::mapModel(1.0f);
+bool firstMouse = true;
+float yaw   = -90.0f;
+float pitch =  0.0f;
+float lastX = 640 / 2.0f;
+float lastY = 480 / 2.0f;
 Cube * cube;
 // View matrix, defined by eye, center and up.
 glm::mat4 Window::view = glm::lookAt(Window::eye, Window::center + Window::eye, Window::up);
@@ -253,15 +259,17 @@ bool Window::initializeObjects()
 		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, false);
     T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 1.0f, 0.6f));
     table = new Geometry(T, "/Users/ryanjackson/cse167/table1.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, true);
-    
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 2.3, -1.75)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.35f, 0.45f, 0.70f))* glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));;
+    mapholder = new Geometry(T, "/Users/ryanjackson/cse167/mapholder.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, true);
   //tablescale = new Transform(T);
-	root->addChild(sphere1);
-    root->addChild(sphere2);
+	//root->addChild(sphere1);
+    root->addChild(table);
+    root->addChild(mapholder);
    // tablescale->addChild(table);
    // root->addChild(table);
     //cube = new Cube();
      mesh.initVertArray();
-    mapModel = mapModel * glm::translate(glm::vec3(0.0f, 3.0f, 0.3f)) * glm::scale(glm::mat4(0.3f), glm::vec3(1.2f, 1.0f, 2.4f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
+    mapModel = mapModel * glm::translate(glm::vec3(0.0f, 2.3f, -2.0)) * glm::scale(glm::mat4(0.3f), glm::vec3(1.2f, 1.0f, 2.4f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
 	return true;
 }
 
@@ -409,13 +417,14 @@ void Window::drawScene() {
 
 	glUniform1i(celFlagLoc, cFlag);
 	glUniform1i(shadowFlagLoc, sFlag);
-
+    projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 1000.0f);
+    view = glm::lookAt(Window::eye, Window::center + eye, Window::up);
     
 	// Render the object with the appropriate shader program, might need something special inside subclasses so
 	// the transforms know which shader they should use
     root->draw(program, glm::mat4(1.0f));
-    projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 1000.0f);
-    view = glm::lookAt(Window::eye, Window::center + eye, Window::up);
+    //projection = glm::perspective(glm::radians(fov), (float)width / (float)height, 1.0f, 1000.0f);
+   // view = glm::lookAt(Window::eye, Window::center + eye, Window::up);
     glm::vec3 mapLight(0.0f, 1.0f, -2.0f);
     glUseProgram(mapShader);
     glUniformMatrix4fv(mapProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
@@ -423,7 +432,7 @@ void Window::drawScene() {
     glUniformMatrix4fv(mapModelLoc, 1, GL_FALSE, glm::value_ptr(mapModel));
     glUniform3f(mapLightLoc, 0.0f, 1.0f, 2.0f);
 
-    //mesh.draw();
+    mesh.draw();
     glUseProgram(skyboxShader);
     glUniformMatrix4fv(skyBoxProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
     glUniformMatrix4fv(skyboxViewLoc, 1, GL_FALSE, glm::value_ptr(view));
@@ -468,55 +477,87 @@ void Window::displayCallback(GLFWwindow* window)
 
 void Window::cursor_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    startingPos.x = xpos;
-    startingPos.y = ypos;
+    if (firstMouse)
+    {
+        lastX = xpos;
+        lastY = ypos;
+        firstMouse = false;
+    }
+ //   if(Movement == 1){
+    float xoffset = xpos - lastX;
+    float yoffset = lastY - ypos; // reversed since y-coordinates go from bottom to top
+    lastX = xpos;
+    lastY = ypos;
+
+    float sensitivity = 0.1f; // change this value to your liking
+    xoffset *= sensitivity;
+    yoffset *= sensitivity;
+
+    yaw += xoffset;
+    pitch += yoffset;
+
+    // make sure that when pitch is out of bounds, screen doesn't get flipped
+    if (pitch > 89.0f)
+        pitch = 89.0f;
+    if (pitch < -89.0f)
+        pitch = -89.0f;
+
+    glm::vec3 front;
+    front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    front.y = sin(glm::radians(pitch));
+    front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    center = glm::normalize(front);
+  //  }
+   // startingPos.x = xpos;
+   // startingPos.y = ypos;
     
-    if(Movement == 1){
-    glm::vec3 direction;
-    float rotAngle;
-    glm::vec3 currPoint;
-    currPoint = trackBallMapping(startingPos);
+   // if(Movement == 1){
+  //  glm::vec3 direction;
+  //  float rotAngle;
+   // glm::vec3 currPoint;
+  //  currPoint = trackBallMapping(startingPos);
         
         
-    direction = currPoint-lastPosition;
-            float velocity = glm::length(direction);
-            if(velocity > 0.001){
-                glm::vec3 rotAxis = glm::cross(lastPosition, currPoint);
-                rotAxis = glm::normalize(rotAxis);
+   // direction = currPoint-lastPosition;
+          //  float velocity = glm::length(direction);
+         //   if(velocity > 0.001){
+             //   glm::vec3 rotAxis = glm::cross(lastPosition, currPoint);
+            //    rotAxis = glm::normalize(rotAxis);
                
           
-                float check = glm::dot(lastPosition, currPoint);
+            //    float check = glm::dot(lastPosition, currPoint);
             
-                rotAngle = glm::acos(check);
-                    glm::mat4 trans = glm::translate(-eye);
-                    glm::mat4 rot = glm::rotate(rotAngle, rotAxis);
-                    glm::vec4 holdCent(Window::center, 1.0f);
-                    holdCent =  glm::inverse(trans) * rot * trans * holdCent;
-                    center = holdCent;
-                    lastPosition = currPoint;
+            //    rotAngle = glm::acos(check);
+              //      glm::mat4 trans = glm::translate(-eye);
+             //       glm::mat4 rot = glm::rotate(rotAngle, rotAxis);
+               ///     glm::vec4 holdCent(Window::center, 1.0f);
+               //     holdCent =  glm::inverse(trans) * rot * trans * holdCent;
+               //     center = holdCent;
+                //    lastPosition = currPoint;
  
-            }
-    }
+           // }
+  //  }
 }
 
 void Window::mouse_callback(GLFWwindow * window, int button, int actions, int mods){
-    if(button == GLFW_MOUSE_BUTTON_LEFT && actions == GLFW_PRESS){
-     Movement = 1;
-     lastPosition = trackBallMapping(startingPos);
-    }
-    if(button == GLFW_MOUSE_BUTTON_LEFT && actions == GLFW_RELEASE){
+    //if(button == GLFW_MOUSE_BUTTON_LEFT && actions == GLFW_PRESS){
+    // Movement = 1;
+    // lastPosition = trackBallMapping(startingPos);
+   // }
+   // if(button == GLFW_MOUSE_BUTTON_LEFT && actions == GLFW_RELEASE){
         
-        Movement = 0;
-    }
+   //     Movement = 0;
+   // }
+    
 }
 
 void Window::scroll_callback(GLFWwindow * window, double xoffset, double yoffset){
-   if (fov >= 5.0f && fov <= 600.0f)
+   if (fov >= 5.0f && fov <= 45.0f)
        fov -= yoffset;
    if (fov <= 5.0f)
        fov = 5.0f;
-   if (fov >= 600.0f)
-       fov = 600.0f;
+   if (fov >= 45.0f)
+       fov = 45.0f;
 }
 
 glm::vec3 Window::trackBallMapping(glm::vec2 point){
