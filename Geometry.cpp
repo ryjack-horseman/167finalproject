@@ -58,7 +58,7 @@ void Geometry::draw(GLuint shaderProgram, glm::mat4 C)
 	// Draw triangles using the indices in the second VBO, which is an 
 	// element array buffer.
     if(type){
-        glEnable(GL_CULL_FACE);
+      //  glEnable(GL_CULL_FACE);
         glDrawElements(GL_TRIANGLES, 3 * faces.size(), GL_UNSIGNED_INT, 0);
     }
     else{

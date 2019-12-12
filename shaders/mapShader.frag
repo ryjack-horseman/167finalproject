@@ -21,4 +21,5 @@ void main()
     float cosTheta = clamp( dot( normalize(normal),normalize(light)), 0,1 );
 
     color = vec3(0.7,0.7,0.7)*lightPow*(cosTheta+0.1)/(length(light)*length(light));
+    
 }

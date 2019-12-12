@@ -15,10 +15,15 @@ Geometry*sphere1;
 Geometry*sphere2;
 Geometry*table;
 Geometry*mapholder;
+Geometry*ground;
+Geometry*backwall;
+Geometry*frontwall;
+Geometry*rightwall;
+Geometry*leftwall;
 Transform* tablescale;
 glm::mat4 Window::projection; // Projection matrix.
 
-glm::vec3 Window::eye(0, 4, 8); // Camera position.
+glm::vec3 Window::eye(0, 5, 8); // Camera position.
 glm::vec3 Window::center(0, 0, -1); // The point we are looking at.
 glm::vec3 Window::up(0, 1, 0); // The up direction of the camera.
 glm::mat4 Window::mapModel(1.0f);
@@ -259,17 +264,24 @@ bool Window::initializeObjects()
 		glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, false);
     T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -2.5f)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.8f, 1.0f, 0.6f));
     table = new Geometry(T, "/Users/ryanjackson/cse167/table1.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, true);
-    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 2.3, -1.75)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.35f, 0.45f, 0.70f))* glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));;
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 2.3, -1.75)) * glm::scale(glm::mat4(1.0f), glm::vec3(0.35f, 0.45f, 0.70f))* glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
     mapholder = new Geometry(T, "/Users/ryanjackson/cse167/mapholder.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), emerald, 0.6f, true);
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, -1.0, -1.75)) * glm::scale(glm::mat4(1.0f), glm::vec3(5.0f, 5.0f, 5.0f));
+    ground = new Geometry(T, "/Users/ryanjackson/cse167/floor2.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), chrome, 0.6f, true);
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 0.0)) * glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, 1.0f, 1.0f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
+    backwall = new Geometry(T, "/Users/ryanjackson/cse167/realwalls.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), chrome, 0.6f, true);
+    T = glm::translate(glm::mat4(1.0f), glm::vec3(0.0, 0.0, 0.0)) * glm::scale(glm::mat4(1.0f), glm::vec3(7.0f, 8.0f, 6.0f));
+    leftwall = new Geometry(T, "/Users/ryanjackson/cse167/hopeitworks.obj", (float)width, (float)height, glm::vec3(111.0f / 256.0f, 174.0f / 256.0f, 232.0f / 256.0f), chrome, 0.6f, true);
   //tablescale = new Transform(T);
-	//root->addChild(sphere1);
+   root->addChild(ground);
+	root->addChild(leftwall);
     root->addChild(table);
     root->addChild(mapholder);
    // tablescale->addChild(table);
    // root->addChild(table);
     //cube = new Cube();
      mesh.initVertArray();
-    mapModel = mapModel * glm::translate(glm::vec3(0.0f, 2.3f, -2.0)) * glm::scale(glm::mat4(0.3f), glm::vec3(1.2f, 1.0f, 2.4f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
+    mapModel = mapModel * glm::translate(glm::vec3(0.0f, 2.3f, -1.9)) * glm::scale(glm::mat4(0.3f), glm::vec3(1.2f, 1.0f, 2.2f)) * glm::rotate(0.0f, glm::vec3(0.0f,1.0f,0.0f));
 	return true;
 }
 

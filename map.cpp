@@ -32,55 +32,6 @@ map::map(int x, int y)
     }
 }
 
-map::map(std::vector<std::vector<float> > input, int x, int y)
-{
-    this->x = x;
-    this->y = y;//change to be autommatic
-    totalsize = x* y;
-
-    elements= input;
-
-
-}
-
-void map::display(){
-    for(int i = 0; i != y; i++)
-    {
-        for (int u = 0; u != x; u++)
-        {
-
-            std::cout << elements[i][u];
-        }
-        std::cout << std::endl;
-    }
-
-}
-
-bool map::isedge(int x, int y)
-{
-    if (x == this->x -1 || y == this->y -1 || x == 0 || y==0) return true;
-    else return false;
-
-}
-
-bool map::isPastEdge(int x, int y)
-{
-    if (x > this->x - 1 || y > this->y - 1 || x < 0 || y < 0) return true;
-    else return false;
-}
-
-
-void map::clearElements() //optimize //maybe make zero map
-{
-  for(int ry = 0; ry != y; ry++)
-    {
-        for (int rx = 0; rx != x; rx++)
-        {
-            elements[ry][rx] = 0;
-        }
-    }
-}
-
 int map::getX()
 {
     return x;
@@ -91,10 +42,6 @@ int map::getY()
     return y;
 }
 
-int map::getTotalsize()
-{
-    return totalsize;
-}
  std::vector<std::vector<float> > map::getElements()
 {
     return elements;
@@ -107,11 +54,6 @@ void map::setElement(int x, int y, int val)
 float map::getElement(int x, int y)
 {
     return elements[y][x];
-}
-
-void map::loadElements(std::vector<std::vector<float> > input) //maybe also do new equal to and new clear?
-{
-    elements = input;
 }
 
 void map::square(int x, int y, int size, int offset)
@@ -156,149 +98,6 @@ void map::diamond(int x, int y, int size, int offset)
             elements[y - size][x]) / 4 + offset;
     } // optomize so not going through all 4 before this
 
-}
-void map::generate(int size, int roughness) //size is just x but make x better first, sidelength
-{
-    srand(time(NULL));
-    int squaresize = (size - 1) / 2;
-
-    while(squaresize>0)//for(int i = 0; i < (size); i = i+2) //fix to a for loop
-    {
-        for (int y= 0; y < size/(squaresize*2); y++)
-        {
-            for (int x = 0; x < size / (squaresize * 2 ); x++)
-            {
-                square((x*squaresize * 2) + squaresize,
-                       (y*squaresize * 2 ) + squaresize,
-                       squaresize,
-                       rand() % roughness*squaresize*2 - squaresize*roughness);
-            }
-        }
-        
-        int rowtype = 1;
-
-        for (int y = 0; y < size; y += squaresize)//follows diff for loop logic then square
-        {
-            if (rowtype == 1)
-            {
-                for (int x = squaresize; x < size; x += 2*squaresize)
-                {
-                    diamond(x, y, squaresize, rand() % roughness*squaresize * 2 - squaresize);
-                }
-            }
-            if (rowtype == -1)
-            {
-                for (int x = 0; x < size; x += squaresize*2)
-                {
-                    diamond(x, y, squaresize, rand() % roughness*squaresize * 2 - squaresize);
-                }
-            }
-            rowtype *= -1;
-        }
-
-        squaresize *= 0.5;
-    }
-}
-
-void map::generate(int size, float roughness) //size is just x but make x better first, sidelength
-{
-    srand(time(NULL));
-    int squaresize = (size - 1) / 2;
-
-    while (squaresize>0)//for(int i = 0; i < (size); i = i+2) //fix to a for loop
-    {
-        for (int y = 0; y < size / (squaresize * 2); y++)
-        {
-            for (int x = 0; x < size / (squaresize * 2); x++)
-            {
-                square((x*squaresize * 2) + squaresize,
-                    (y*squaresize * 2) + squaresize,
-                    squaresize,
-                    rand() % int(squaresize*roughness * 2) - squaresize*roughness);
-            }
-        }
-
-        int rowtype = 1;
-
-        for (int y = 0; y < size; y += squaresize)//follows diff for loop logic then square
-        {
-            if (rowtype == 1)
-            {
-                for (int x = squaresize; x < size; x += 2 * squaresize)
-                {
-                    diamond(x, y, squaresize, rand() % int(squaresize*roughness * 2) - squaresize*roughness);
-                }
-            }
-            if (rowtype == -1)
-            {
-                for (int x = 0; x < size; x += squaresize * 2)
-                {
-                    diamond(x, y, squaresize, rand() % int(squaresize*roughness * 2) - squaresize*roughness);
-                }
-            }
-            rowtype *= -1;
-        }
-
-        squaresize /= 2;
-    }
-}
-
-//generates with caps during generation, both set up for time randomsness, not generated
-void map::generate(int size, int roughness, int min, int max) //size is just x but make x better first, sidelength
-{
-    srand(time(NULL));
-    
-    int random;
-    int squaresize = (size - 1) / 2;
-
-    while (squaresize>0)//for(int i = 0; i < (size); i = i+2) //fix to a for loop
-    {
-        for (int y = 0; y < size / (squaresize * 2); y++)
-        {
-            for (int x = 0; x < size / (squaresize * 2); x++)
-            {
-                random = rand() % roughness*squaresize * 2 - squaresize*roughness;
-                if (random > max) random = max;
-                else if (random < min) random = min;
-
-                square((x*squaresize * 2) + squaresize,
-                    (y*squaresize * 2) + squaresize,
-                    squaresize,
-                    random);
-            }
-        }
-
-        int rowtype = 1;
-
-        for (int y = 0; y < size; y += squaresize)//follows diff for loop logic then square
-        {
-
-            if (rowtype == 1)
-            {
-                for (int x = squaresize; x < size; x += 2 * squaresize)
-                {
-                    random = rand() % roughness*squaresize * 2 - squaresize*roughness;
-                    if (random > max) random = max;
-                    else if (random < min) random = min;
-
-                    diamond(x, y, squaresize, random);
-                }
-            }
-            if (rowtype == -1)
-            {
-                for (int x = 0; x < size; x += squaresize * 2)
-                {
-                    random = rand() % roughness*squaresize * 2 - squaresize*roughness;
-                    if (random > max) random = max;
-                    else if (random < min) random = min;
-
-                    diamond(x, y, squaresize, random);
-                }
-            }
-            rowtype *= -1;
-        }
-        squaresize /= 2;
-    }
 }
 
 void map::generate(int size, float mag, float roughness) //size is just x but make x better first, sidelength
@@ -357,16 +156,6 @@ void map::capData(int lower, int upper)
     }
 }
 
-void map::multiplyData(float multiple)
-{
-    for (int y = 0; y < this->y; y++)
-    {
-        for (int x = 0; x < this->x; x++)
-        {
-            elements[y][x] *= multiple;
-        }
-    }
-}
 
 void map::smooth(int filterSize, int passes)
 {
@@ -399,7 +188,4 @@ void map::smooth(int filterSize, int passes)
     }
 }
 
-void map::dynamicHeightSmooth(int filterSize, int passMin, int passMax)
-{
-    // MAKE SMOOTH BY HEIGHT
-}
+
